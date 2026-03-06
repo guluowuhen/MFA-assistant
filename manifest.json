@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "MFA助手",
+  "version": "1.0.0",
+  "description": "访问指定域名时自动显示当前 MFA 验证码。",
+  "permissions": ["storage", "tabs"],
+  "action": {
+    "default_title": "MFA助手 设置",
+    "default_popup": "popup/popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content/content.js"],
+      "css": ["content/content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

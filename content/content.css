@@ -1,0 +1,102 @@
+#mfa-domain-helper-root {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 2147483647;
+  width: 248px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+#mfa-domain-helper-root * {
+  box-sizing: border-box;
+}
+
+.mfa-card {
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
+  overflow: hidden;
+}
+
+.mfa-head {
+  padding: 10px 12px;
+  background: linear-gradient(120deg, #e9f4ff 0%, #f7fbff 100%);
+  border-bottom: 1px solid #e4ebf5;
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+.mfa-title {
+  margin: 0;
+  font-size: 13px;
+  color: #1d3557;
+  font-weight: 700;
+}
+
+.mfa-host {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #44556e;
+  word-break: break-all;
+}
+
+.mfa-body {
+  padding: 12px;
+}
+
+.mfa-code {
+  font-size: 32px;
+  letter-spacing: 3px;
+  line-height: 1.1;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.mfa-sub {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.mfa-bar-bg {
+  margin-top: 8px;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #dceeff;
+}
+
+.mfa-bar {
+  height: 100%;
+  width: 0;
+  background: #0b6bcb;
+  transition: width 0.2s linear;
+}
+
+.mfa-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.mfa-copy,
+.mfa-close {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.mfa-copy {
+  background: #0b6bcb;
+  color: #fff;
+  flex: 1;
+}
+
+.mfa-close {
+  background: #eef3f9;
+  color: #30435f;
+}

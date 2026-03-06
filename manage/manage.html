@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MFA 配置中心</title>
+    <link rel="stylesheet" href="./manage.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>MFA助手配置</h1>
+
+      <section class="panel">
+        <div class="upload-tip">请上传 MFA 二维码图片（支持多选）</div>
+        <div class="row">
+          <input id="qrFilesInput" type="file" accept="image/*" multiple />
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="table-head">
+          <div class="sub-title">待保存列表</div>
+          <button id="manualAddBtn" type="button">新增</button>
+        </div>
+
+        <div class="table-wrap">
+          <table class="pending-table">
+            <thead>
+              <tr>
+                <th><span class="required-star">*</span> 系统名称</th>
+                <th><span class="required-star">*</span> mfa_url</th>
+                <th>密钥文本</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="pendingTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="actions">
+          <button id="clearPendingBtn" type="button">清空</button>
+          <button id="saveSelectedBtn" type="button" class="primary">保存</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="sub-title">已绑定系统</div>
+        <div id="savedList" class="list"></div>
+      </section>
+
+      <p id="msg" class="msg"></p>
+    </main>
+
+    <script src="./jsQR.js"></script>
+    <script src="./manage.js"></script>
+  </body>
+</html>
