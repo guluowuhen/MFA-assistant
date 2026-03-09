@@ -95,6 +95,11 @@ button.primary {
   margin-bottom: 8px;
 }
 
+.io-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);
@@ -186,6 +191,15 @@ button.primary {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.choice-select {
+  min-width: 120px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  background: #fff;
 }
 
 .msg {

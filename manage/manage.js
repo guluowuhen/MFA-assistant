@@ -5,11 +5,22 @@ const qrFilesInput = document.getElementById("qrFilesInput");
 const clearPendingBtn = document.getElementById("clearPendingBtn");
 const saveSelectedBtn = document.getElementById("saveSelectedBtn");
 const manualAddBtn = document.getElementById("manualAddBtn");
+const importBtn = document.getElementById("importBtn");
+const exportBtn = document.getElementById("exportBtn");
+const importFileInput = document.getElementById("importFileInput");
+const importConflictPanel = document.getElementById("importConflictPanel");
+const importConflictTitle = document.getElementById("importConflictTitle");
+const importConflictBody = document.getElementById("importConflictBody");
+const keepImportAllBtn = document.getElementById("keepImportAllBtn");
+const keepExistingAllBtn = document.getElementById("keepExistingAllBtn");
+const cancelImportReviewBtn = document.getElementById("cancelImportReviewBtn");
+const applyImportReviewBtn = document.getElementById("applyImportReviewBtn");
 const pendingTableBody = document.getElementById("pendingTableBody");
 const savedListEl = document.getElementById("savedList");
 const msgEl = document.getElementById("msg");
 
 let pendingItems = [];
+let importReviewState = null;
 
 function setMsg(text, isError = false) {
   msgEl.textContent = text;
@@ -75,6 +86,248 @@ function parseSecret(raw) {
     throw new Error("secret 格式不正确");
   }
   return secret;
+}
+
+function getDateStamp() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}${mm}${dd}`;
+}
+
+function sanitizeName(raw, fallback = "") {
+  const value = String(raw || "").trim();
+  return value || fallback;
+}
+
+function buildExportPayload(systems, overrides) {
+  const items = systems.map((system) => {
+    const name = sanitizeName(system?.name, "mfa");
+    const mfa_url = normalizeUrl(String(system?.mfa_url || ""));
+    const secret = overrides[name];
+    return {
+      name,
+      mfa_url,
+      ...(secret ? { secret } : {})
+    };
+  });
+
+  return {
+    schema: "mfa-helper-export",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    items
+  };
+}
+
+function downloadJsonFile(fileName, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
+function parseImportPayload(payload) {
+  if (!payload || typeof payload !== "object") {
+    throw new Error("导入文件格式不正确");
+  }
+
+  let sourceItems = [];
+  if (Array.isArray(payload.items)) {
+    sourceItems = payload.items;
+  } else if (Array.isArray(payload.systems)) {
+    sourceItems = payload.systems;
+  } else {
+    throw new Error("导入文件缺少 items/systems");
+  }
+
+  const normalizedItems = [];
+  const seenUrls = new Set();
+  for (const rawItem of sourceItems) {
+    const name = sanitizeName(rawItem?.name || "");
+    const rawUrl = String(rawItem?.mfa_url || rawItem?.url || "").trim();
+    if (!name || !rawUrl) {
+      throw new Error("导入项缺少 name 或 mfa_url");
+    }
+    let mfa_url = "";
+    try {
+      mfa_url = normalizeUrl(rawUrl);
+    } catch {
+      throw new Error(`导入项 mfa_url 非法：${rawUrl}`);
+    }
+    if (seenUrls.has(mfa_url)) {
+      throw new Error(`导入文件存在重复 mfa_url：${mfa_url}`);
+    }
+    seenUrls.add(mfa_url);
+
+    let secret = "";
+    const rawSecret = rawItem?.secret ?? rawItem?.secretText ?? "";
+    if (String(rawSecret).trim()) {
+      try {
+        secret = parseSecret(String(rawSecret));
+      } catch (error) {
+        throw new Error(`${name} 的密钥格式错误：${error.message}`);
+      }
+    }
+
+    normalizedItems.push({ name, mfa_url, secret });
+  }
+
+  return normalizedItems;
+}
+
+function findSystemIndexByUrl(systems, mfaUrl) {
+  return systems.findIndex((x) => {
+    try {
+      return normalizeUrl(String(x?.mfa_url || "")) === mfaUrl;
+    } catch {
+      return String(x?.mfa_url || "").trim() === mfaUrl;
+    }
+  });
+}
+
+function clearImportReview() {
+  importReviewState = null;
+  importConflictPanel.hidden = true;
+  importConflictBody.innerHTML = "";
+}
+
+function renderImportConflicts() {
+  if (!importReviewState || !importReviewState.conflicts.length) {
+    clearImportReview();
+    return;
+  }
+
+  const { conflicts, nonConflictCount } = importReviewState;
+  importConflictTitle.textContent = `导入冲突处理：重复 ${conflicts.length} 条，可直接导入 ${nonConflictCount} 条`;
+  importConflictBody.innerHTML = "";
+
+  conflicts.forEach((conflict, index) => {
+    const tr = document.createElement("tr");
+
+    const urlTd = document.createElement("td");
+    urlTd.className = "item-file";
+    urlTd.textContent = conflict.mfa_url;
+    tr.appendChild(urlTd);
+
+    const existingTd = document.createElement("td");
+    existingTd.textContent = conflict.existing.name;
+    tr.appendChild(existingTd);
+
+    const importTd = document.createElement("td");
+    importTd.textContent = conflict.imported.name;
+    tr.appendChild(importTd);
+
+    const actionTd = document.createElement("td");
+    const select = document.createElement("select");
+    select.className = "choice-select";
+    select.dataset.type = "conflict_choice";
+    select.dataset.index = String(index);
+
+    const keepImportedOption = document.createElement("option");
+    keepImportedOption.value = "import";
+    keepImportedOption.textContent = "覆盖(导入)";
+    select.appendChild(keepImportedOption);
+
+    const keepExistingOption = document.createElement("option");
+    keepExistingOption.value = "existing";
+    keepExistingOption.textContent = "保留已绑定";
+    select.appendChild(keepExistingOption);
+
+    select.value = conflict.decision;
+    actionTd.appendChild(select);
+    tr.appendChild(actionTd);
+
+    importConflictBody.appendChild(tr);
+  });
+
+  importConflictPanel.hidden = false;
+}
+
+function setAllConflictDecision(decision) {
+  if (!importReviewState) return;
+  importReviewState.conflicts.forEach((item) => {
+    item.decision = decision;
+  });
+  renderImportConflicts();
+}
+
+function prepareImportReview(importItems, systems) {
+  const conflicts = [];
+  let nonConflictCount = 0;
+
+  for (const item of importItems) {
+    const existingIndex = findSystemIndexByUrl(systems, item.mfa_url);
+    if (existingIndex >= 0) {
+      conflicts.push({
+        mfa_url: item.mfa_url,
+        existing: systems[existingIndex],
+        imported: item,
+        decision: "import"
+      });
+    } else {
+      nonConflictCount += 1;
+    }
+  }
+
+  importReviewState = {
+    importItems,
+    conflicts,
+    nonConflictCount
+  };
+}
+
+async function applyImportItems(importItems, conflictDecisionMap) {
+  const systems = await loadSystems();
+  const overrides = await loadOverrides();
+  let createCount = 0;
+  let updateCount = 0;
+  let keepExistingCount = 0;
+
+  for (const item of importItems) {
+    const existingByUrlIndex = findSystemIndexByUrl(systems, item.mfa_url);
+    let imported = true;
+
+    if (existingByUrlIndex >= 0) {
+      const decision = conflictDecisionMap.get(item.mfa_url) || "import";
+      if (decision === "existing") {
+        keepExistingCount += 1;
+        imported = false;
+      } else {
+        const oldName = systems[existingByUrlIndex].name;
+        systems[existingByUrlIndex] = { name: item.name, mfa_url: item.mfa_url };
+        if (oldName !== item.name && !systems.some((x) => x.name === oldName)) {
+          delete overrides[oldName];
+        }
+        updateCount += 1;
+      }
+    } else {
+      const indexByName = systems.findIndex((x) => x.name === item.name);
+      if (indexByName >= 0) {
+        systems[indexByName] = { name: item.name, mfa_url: item.mfa_url };
+        updateCount += 1;
+      } else {
+        systems.push({ name: item.name, mfa_url: item.mfa_url });
+        createCount += 1;
+      }
+    }
+
+    if (imported && item.secret) {
+      overrides[item.name] = item.secret;
+    }
+  }
+
+  await saveSystems(systems);
+  await saveOverrides(overrides);
+  await renderSaved();
+  clearImportReview();
+  setMsg(`导入完成：新增 ${createCount}，覆盖 ${updateCount}，保留已绑定 ${keepExistingCount}`);
 }
 
 async function decodeQrFromFile(file) {
@@ -374,6 +627,109 @@ qrFilesInput.addEventListener("change", async () => {
 
 manualAddBtn.addEventListener("click", () => {
   addEmptyRow();
+});
+
+exportBtn.addEventListener("click", async () => {
+  const systems = await loadSystems();
+  if (!systems.length) {
+    setMsg("暂无已绑定系统可导出", true);
+    return;
+  }
+
+  const overrides = await loadOverrides();
+  let payload;
+  try {
+    payload = buildExportPayload(systems, overrides);
+  } catch (error) {
+    setMsg(`导出失败：${error.message || "数据格式异常"}`, true);
+    return;
+  }
+
+  const fileName = `mfa-systems-${getDateStamp()}.json`;
+  downloadJsonFile(fileName, payload);
+  setMsg(`已导出 ${systems.length} 条绑定`);
+});
+
+importBtn.addEventListener("click", () => {
+  importFileInput.click();
+});
+
+importFileInput.addEventListener("change", async () => {
+  const file = importFileInput.files?.[0];
+  importFileInput.value = "";
+  if (!file) return;
+  clearImportReview();
+
+  let text = "";
+  try {
+    text = await file.text();
+  } catch {
+    setMsg("读取导入文件失败", true);
+    return;
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    setMsg("导入文件不是合法 JSON", true);
+    return;
+  }
+
+  let importItems = [];
+  try {
+    importItems = parseImportPayload(payload);
+  } catch (error) {
+    setMsg(`导入失败：${error.message || "格式不正确"}`, true);
+    return;
+  }
+
+  const systems = await loadSystems();
+  prepareImportReview(importItems, systems);
+
+  if (!importReviewState.conflicts.length) {
+    await applyImportItems(importItems, new Map());
+    return;
+  }
+
+  renderImportConflicts();
+  setMsg(`检测到 ${importReviewState.conflicts.length} 条重复 mfa_url，请先在页面选择处理方式`);
+});
+
+importConflictBody.addEventListener("change", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLSelectElement)) return;
+  if (target.dataset.type !== "conflict_choice") return;
+  if (!importReviewState) return;
+
+  const index = Number(target.dataset.index);
+  if (Number.isNaN(index) || index < 0 || index >= importReviewState.conflicts.length) return;
+  importReviewState.conflicts[index].decision = target.value === "existing" ? "existing" : "import";
+});
+
+keepImportAllBtn.addEventListener("click", () => {
+  setAllConflictDecision("import");
+});
+
+keepExistingAllBtn.addEventListener("click", () => {
+  setAllConflictDecision("existing");
+});
+
+cancelImportReviewBtn.addEventListener("click", () => {
+  clearImportReview();
+  setMsg("已取消本次导入");
+});
+
+applyImportReviewBtn.addEventListener("click", async () => {
+  if (!importReviewState) {
+    setMsg("暂无待处理的导入冲突", true);
+    return;
+  }
+
+  const conflictDecisionMap = new Map(
+    importReviewState.conflicts.map((item) => [item.mfa_url, item.decision])
+  );
+  await applyImportItems(importReviewState.importItems, conflictDecisionMap);
 });
 
 clearPendingBtn.addEventListener("click", () => {

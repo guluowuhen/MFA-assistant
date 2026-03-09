@@ -44,8 +44,42 @@
       </section>
 
       <section class="panel">
-        <div class="sub-title">已绑定系统</div>
+        <div class="table-head">
+          <div class="sub-title">已绑定系统</div>
+          <div class="io-actions">
+            <button id="importBtn" type="button">导入</button>
+            <button id="exportBtn" type="button">导出</button>
+            <input id="importFileInput" type="file" accept="application/json,.json" hidden />
+          </div>
+        </div>
         <div id="savedList" class="list"></div>
+      </section>
+
+      <section id="importConflictPanel" class="panel" hidden>
+        <div class="table-head">
+          <div id="importConflictTitle" class="sub-title">导入冲突处理</div>
+          <div class="io-actions">
+            <button id="keepImportAllBtn" type="button">全部覆盖</button>
+            <button id="keepExistingAllBtn" type="button">全部保留</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="pending-table">
+            <thead>
+              <tr>
+                <th>mfa_url</th>
+                <th>已绑定</th>
+                <th>导入</th>
+                <th>处理方式</th>
+              </tr>
+            </thead>
+            <tbody id="importConflictBody"></tbody>
+          </table>
+        </div>
+        <div class="actions">
+          <button id="cancelImportReviewBtn" type="button">取消</button>
+          <button id="applyImportReviewBtn" type="button" class="primary">应用导入</button>
+        </div>
       </section>
 
       <p id="msg" class="msg"></p>
