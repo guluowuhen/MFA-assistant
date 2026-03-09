@@ -100,6 +100,14 @@ button.primary {
   gap: 8px;
 }
 
+.saved-tools {
+  margin-bottom: 8px;
+}
+
+.saved-tools input {
+  max-width: 340px;
+}
+
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--line);
@@ -174,6 +182,11 @@ button.primary {
   gap: 8px;
 }
 
+.item-actions {
+  display: flex;
+  gap: 6px;
+}
+
 .item-name {
   font-size: 12px;
   font-weight: 700;
@@ -184,6 +197,16 @@ button.primary {
   font-size: 11px;
   color: var(--muted);
   word-break: break-all;
+}
+
+.item-edit {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.item-edit input {
+  width: 100%;
 }
 
 .actions {

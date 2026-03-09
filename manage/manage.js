@@ -15,12 +15,15 @@ const keepImportAllBtn = document.getElementById("keepImportAllBtn");
 const keepExistingAllBtn = document.getElementById("keepExistingAllBtn");
 const cancelImportReviewBtn = document.getElementById("cancelImportReviewBtn");
 const applyImportReviewBtn = document.getElementById("applyImportReviewBtn");
+const savedSearchInput = document.getElementById("savedSearchInput");
 const pendingTableBody = document.getElementById("pendingTableBody");
 const savedListEl = document.getElementById("savedList");
 const msgEl = document.getElementById("msg");
 
 let pendingItems = [];
 let importReviewState = null;
+let savedSearchKeyword = "";
+let editingSavedIndex = -1;
 
 function setMsg(text, isError = false) {
   msgEl.textContent = text;
@@ -99,6 +102,15 @@ function getDateStamp() {
 function sanitizeName(raw, fallback = "") {
   const value = String(raw || "").trim();
   return value || fallback;
+}
+
+function escapeHtml(raw) {
+  return String(raw)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function buildExportPayload(systems, overrides) {
@@ -548,16 +560,60 @@ async function renderSaved() {
     return;
   }
 
-  systems.forEach((item, index) => {
+  const keyword = savedSearchKeyword.trim().toLowerCase();
+  const filteredItems = systems
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => {
+      if (!keyword) return true;
+      const nameText = String(item?.name || "").toLowerCase();
+      const urlText = String(item?.mfa_url || "").toLowerCase();
+      return nameText.includes(keyword) || urlText.includes(keyword);
+    });
+
+  if (!filteredItems.length) {
+    savedListEl.innerHTML = '<div class="muted">没有匹配项。</div>';
+    return;
+  }
+
+  filteredItems.forEach(({ item, index }) => {
     const row = document.createElement("div");
     row.className = "item";
-    row.innerHTML = `
-      <div class="item-head">
-        <div class="item-name">${item.name}</div>
-        <button class="btn-del" data-type="del_saved" data-index="${index}" type="button">删除</button>
-      </div>
-      <div class="item-file">${item.mfa_url}</div>
-    `;
+    if (editingSavedIndex === index) {
+      row.innerHTML = `
+        <div class="item-head">
+          <div class="item-name">编辑中</div>
+          <div class="item-actions">
+            <button data-type="cancel_edit_saved" data-index="${index}" type="button">取消</button>
+            <button data-type="save_edit_saved" data-index="${index}" type="button" class="primary">保存</button>
+          </div>
+        </div>
+        <div class="item-edit">
+          <input
+            data-type="edit_saved_name"
+            data-index="${index}"
+            value="${escapeHtml(item.name)}"
+            placeholder="系统名称"
+          />
+          <input
+            data-type="edit_saved_url"
+            data-index="${index}"
+            value="${escapeHtml(item.mfa_url)}"
+            placeholder="mfa_url"
+          />
+        </div>
+      `;
+    } else {
+      row.innerHTML = `
+        <div class="item-head">
+          <div class="item-name">${escapeHtml(item.name)}</div>
+          <div class="item-actions">
+            <button data-type="edit_saved" data-index="${index}" type="button">编辑</button>
+            <button class="btn-del" data-type="del_saved" data-index="${index}" type="button">删除</button>
+          </div>
+        </div>
+        <div class="item-file">${escapeHtml(item.mfa_url)}</div>
+      `;
+    }
     savedListEl.appendChild(row);
   });
 }
@@ -817,9 +873,76 @@ saveSelectedBtn.addEventListener("click", async () => {
 savedListEl.addEventListener("click", async (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement)) return;
-  if (target.dataset.type !== "del_saved") return;
-
+  const type = target.dataset.type;
   const index = Number(target.dataset.index);
+
+  if (type === "edit_saved") {
+    if (Number.isNaN(index) || index < 0) return;
+    editingSavedIndex = index;
+    await renderSaved();
+    return;
+  }
+
+  if (type === "cancel_edit_saved") {
+    editingSavedIndex = -1;
+    await renderSaved();
+    return;
+  }
+
+  if (type === "save_edit_saved") {
+    const nameInput = savedListEl.querySelector(`input[data-type="edit_saved_name"][data-index="${index}"]`);
+    const urlInput = savedListEl.querySelector(`input[data-type="edit_saved_url"][data-index="${index}"]`);
+    if (!(nameInput instanceof HTMLInputElement) || !(urlInput instanceof HTMLInputElement)) return;
+
+    const name = nameInput.value.trim();
+    const rawUrl = urlInput.value.trim();
+    if (!name || !rawUrl) {
+      setMsg("系统名称和 mfa_url 不能为空", true);
+      return;
+    }
+
+    let normalizedUrl = "";
+    try {
+      normalizedUrl = normalizeUrl(rawUrl);
+    } catch {
+      setMsg(`mfa_url 非法：${rawUrl}`, true);
+      return;
+    }
+
+    const systems = await loadSystems();
+    if (Number.isNaN(index) || index < 0 || index >= systems.length) return;
+
+    if (systems.some((item, i) => i !== index && item.name === name)) {
+      setMsg(`已存在同名系统：${name}`, true);
+      return;
+    }
+
+    if (systems.some((item, i) => i !== index && findSystemIndexByUrl([item], normalizedUrl) >= 0)) {
+      setMsg(`已存在相同 mfa_url：${normalizedUrl}`, true);
+      return;
+    }
+
+    const oldName = systems[index].name;
+    systems[index] = { name, mfa_url: normalizedUrl };
+    await saveSystems(systems);
+
+    if (oldName !== name) {
+      const overrides = await loadOverrides();
+      if (Object.prototype.hasOwnProperty.call(overrides, oldName)) {
+        overrides[name] = overrides[oldName];
+        delete overrides[oldName];
+        await saveOverrides(overrides);
+      }
+    }
+
+    editingSavedIndex = -1;
+    await renderSaved();
+    setMsg("已保存编辑");
+    return;
+  }
+
+  if (type !== "del_saved") return;
+
   const systems = await loadSystems();
   if (Number.isNaN(index) || index < 0 || index >= systems.length) return;
 
@@ -831,8 +954,14 @@ savedListEl.addEventListener("click", async (event) => {
   delete overrides[removedName];
   await saveOverrides(overrides);
 
+  editingSavedIndex = -1;
   await renderSaved();
   setMsg("已删除绑定");
+});
+
+savedSearchInput.addEventListener("input", async () => {
+  savedSearchKeyword = savedSearchInput.value || "";
+  await renderSaved();
 });
 
 (async function init() {
