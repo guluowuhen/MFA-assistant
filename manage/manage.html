@@ -58,32 +58,36 @@
         <div id="savedList" class="list"></div>
       </section>
 
-      <section id="importConflictPanel" class="panel" hidden>
-        <div class="table-head">
-          <div id="importConflictTitle" class="sub-title">导入冲突处理</div>
-          <div class="io-actions">
-            <button id="keepImportAllBtn" type="button">全部覆盖</button>
-            <button id="keepExistingAllBtn" type="button">全部保留</button>
+      <div id="importConflictPanel" class="modal" hidden>
+        <div class="modal-mask" data-type="close_import_modal"></div>
+        <section class="panel modal-panel" role="dialog" aria-modal="true" aria-labelledby="importConflictTitle">
+          <div class="table-head">
+            <div id="importConflictTitle" class="sub-title">冲突处理</div>
+            <div class="io-actions">
+              <button id="keepImportAllBtn" type="button">全部覆盖</button>
+              <button id="keepExistingAllBtn" type="button">全部保留</button>
+            </div>
           </div>
-        </div>
-        <div class="table-wrap">
-          <table class="pending-table">
-            <thead>
-              <tr>
-                <th>mfa_url</th>
-                <th>已绑定</th>
-                <th>导入</th>
-                <th>处理方式</th>
-              </tr>
-            </thead>
-            <tbody id="importConflictBody"></tbody>
-          </table>
-        </div>
-        <div class="actions">
-          <button id="cancelImportReviewBtn" type="button">取消</button>
-          <button id="applyImportReviewBtn" type="button" class="primary">应用导入</button>
-        </div>
-      </section>
+          <div id="importPreviewStats" class="import-preview-stats"></div>
+          <div class="table-wrap">
+            <table class="pending-table">
+              <thead>
+                <tr>
+                  <th id="conflictKeyHeader">mfa_url</th>
+                  <th id="conflictExistingHeader">已绑定</th>
+                  <th id="conflictIncomingHeader">导入</th>
+                  <th id="conflictActionHeader">处理方式</th>
+                </tr>
+              </thead>
+              <tbody id="importConflictBody"></tbody>
+            </table>
+          </div>
+          <div class="actions">
+            <button id="cancelImportReviewBtn" type="button">取消</button>
+            <button id="applyImportReviewBtn" type="button" class="primary">应用导入</button>
+          </div>
+        </section>
+      </div>
 
       <p id="msg" class="msg"></p>
     </main>
