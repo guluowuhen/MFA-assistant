@@ -1,12 +1,23 @@
 {
   "manifest_version": 3,
   "name": "MFA助手",
-  "version": "1.0.0",
+  "version": "0.8.0",
   "description": "访问指定域名时自动显示当前 MFA 验证码。",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "permissions": ["storage", "tabs"],
   "action": {
     "default_title": "MFA助手 设置",
-    "default_popup": "popup/popup.html"
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
   },
   "content_scripts": [
     {
